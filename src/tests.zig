@@ -212,3 +212,30 @@ test "QT73" {
     try expect(std.mem.eql(u8, element.name, "Comment and document-end marker"));
     try expect(std.mem.eql(u8, element.from, "@perlpunk"));
 }
+
+test "arbitrary field order" {
+    // test
+    const Experiment = struct {
+        dump: []const u8,
+        from: []const u8,
+        json: []const u8,
+        name: []const u8,
+        tags: []const u8,
+        tree: []const u8,
+        yaml: []const u8,
+    };
+
+    const yml_file_location = try std.fs.cwd().realpathAlloc(
+        std.testing.allocator,
+        "./resources/yaml-test-suite/arbitrary-field-order.yml",
+    );
+    defer std.testing.allocator.free(yml_file_location);
+
+    var ymlz = try Ymlz(Experiment).init(std.testing.allocator);
+    const result = try ymlz.loadFile(yml_file_location);
+    defer ymlz.deinit(result);
+
+    try expect(std.mem.eql(u8, result.name, "Spec Example 6.20. Tag Handles"));
+    try expect(std.mem.eql(u8, result.tree, "+STR\n +DOC ---\n  =VAL <tag:example.com,2000:app/foo> \"bar\n -DOC\n-STR"));
+    try expect(std.mem.eql(u8, result.dump, "--- !<tag:example.com,2000:app/foo> \"bar\"\n"));
+}
