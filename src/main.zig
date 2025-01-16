@@ -25,8 +25,23 @@ pub fn main() !void {
         \\  another:
         \\    new: 1
         \\    stringed: its just a string
+        \\tutorial:
+        \\  - name: "YAML Ain't Markup Language"
+        \\    type: awesome
+        \\    born: 2001
+        \\  - name: JavaScript Object Notation
+        \\    type: great
+        \\    born: 2001
+        \\  - name: Extensible Markup Language
+        \\    type: good
+        \\    born: 1996
     ;
 
+    const Tutorial = struct {
+        name: []const u8,
+        type: []const u8,
+        born: u64,
+    };
     const Experiment = struct {
         first: i32,
         second: i64,
@@ -42,6 +57,7 @@ pub fn main() !void {
                 stringed: []const u8,
             },
         },
+        tutorials: []Tutorial,
     };
 
     var ymlz = try Ymlz(Experiment).init(allocator);
@@ -49,4 +65,5 @@ pub fn main() !void {
     defer ymlz.deinit(result);
 
     std.debug.print("Experiment.first: {}\n", .{result.first});
+    std.debug.print("Experiment.fourth: {}\n", .{result.fourth});
 }

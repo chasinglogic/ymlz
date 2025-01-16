@@ -25,6 +25,26 @@ fn isComment(line: []const u8) bool {
     return false;
 }
 
+fn getFirstCharacterIndex(s: []const u8) usize {
+    for (s, 0..) |char, index| {
+        if (char != ' ' and char != '-') {
+            return index;
+        }
+    }
+
+    return 0;
+}
+
+fn getFieldName(line: []const u8) []const u8 {
+    for (line, 0..) |char, index| {
+        if (char == ':') {
+            return line[getFirstCharacterIndex(line)..index];
+        }
+    }
+
+    return "";
+}
+
 const Dictionary = struct {
     key: []const u8,
     values: [][]const u8,
@@ -184,36 +204,44 @@ pub fn Ymlz(comptime Destination: type) type {
         fn parse(self: *Self, comptime T: type, depth: usize) !T {
             var destination: T = undefined;
 
-            const destination_reflaction = @typeInfo(@TypeOf(destination));
+            const destination_reflection = @typeInfo(@TypeOf(destination));
 
-            inline for (destination_reflaction.Struct.fields) |field| {
-                const type_info = @typeInfo(field.type);
+            const fh = std.io.getStdOut().writer();
 
-                const is_optional_field = type_info == .Optional;
-
-                // TODO: Need to think of something more robust then this.
-                const raw_line = try self.readLine() orelse {
-                    if (is_optional_field) {
-                        @field(destination, field.name) = null;
-                    }
+            while (true) {
+                const line = try self.readLine() orelse {
                     break;
                 };
+                const fieldName = getFieldName(line);
+                try fh.print("field: {s}\n", .{fieldName});
+                try fh.print("line: {s}\n", .{line});
 
-                const is_optional_and_valid = (is_optional_field and try self.isOptionalFieldExists(field.name, raw_line, depth));
+                inline for (destination_reflection.Struct.fields) |field| {
+                    do: {
+                        if (!std.mem.eql(u8, field.name, fieldName)) {
+                            break :do;
+                        }
 
-                if (!is_optional_field or is_optional_and_valid) {
-                    const actual_type_info = if (is_optional_field) @typeInfo(type_info.Optional.child) else type_info;
+                        const type_info = @typeInfo(field.type);
+                        const is_optional_field = type_info == .Optional;
 
-                    try self.parseField(
-                        actual_type_info,
-                        &destination,
-                        field,
-                        raw_line,
-                        depth,
-                    );
-                } else {
-                    try self.suspense.set(raw_line);
-                    @field(destination, field.name) = null;
+                        const is_optional_and_valid = (is_optional_field and try self.isOptionalFieldExists(field.name, line, depth));
+
+                        if (!is_optional_field or is_optional_and_valid) {
+                            const actual_type_info = if (is_optional_field) @typeInfo(type_info.Optional.child) else type_info;
+
+                            try self.parseField(
+                                actual_type_info,
+                                &destination,
+                                field,
+                                line,
+                                depth,
+                            );
+                        } else {
+                            try self.suspense.set(line);
+                            @field(destination, field.name) = null;
+                        }
+                    }
                 }
             }
 
